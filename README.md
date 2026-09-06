@@ -6,7 +6,7 @@ Dự án phát triển theo mô hình **Phân loại Đa nhãn (Multi-Label) k�
 
 ---
 
-## 🎯 Bản chất Bài toán & Phương án Xử lý Ảnh
+## Bản chất Bài toán & Phương án Xử lý Ảnh
 
 > [!IMPORTANT]
 > **Phương án Xử lý Ảnh hiện tại**: Mô hình theo **Phương án A (Một crop toàn thân - Single Full-body Crop)**.
@@ -21,7 +21,7 @@ Dự án phát triển theo mô hình **Phân loại Đa nhãn (Multi-Label) k�
 
 ---
 
-## 📐 Sơ đồ Pipeline Hệ thống (High-Level System Overview)
+## Sơ đồ Pipeline Hệ thống (High-Level System Overview)
 
 ```mermaid
 flowchart LR
@@ -47,19 +47,22 @@ flowchart LR
         Checkpoint --> Infer["Predict 1 ảnh & Filter Gallery\n(predict_image / filter_pedestrians)"]
     end
 
-    subgraph Tracking ["5. Video Tracking & Attribute Aggregation (Level 1 & 2)"]
-        Video["Video / Webcam"] --> Tracker["YOLOv8 + ByteTrack\n(tracking/track.py)"]
+    subgraph Tracking ["5. Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)"]
+        Video["Video / Webcam\n(tracking/test_videos/*)"] --> Tracker["YOLOv8 + ByteTrack\n(tracking/track.py - L1)"]
         Tracker --> CSVTracks["Structured Tracks CSV\n(reports/tracking/*_tracks.csv)"]
-        CSVTracks --> CropExt["Extract Person Crops\n(tracking/extract_crops.py)"]
-        CropExt --> TrackAttr["Track Attribute Aggregation\n(tracking/track_attributes.py)"]
+        CSVTracks --> CropExt["Extract Person Crops\n(tracking/extract_crops.py - L2)"]
+        CropExt --> TrackAttr["Track Attribute Aggregation\n(tracking/track_attributes.py - L2)"]
         Checkpoint --> TrackAttr
-        TrackAttr --> Summary["Tracked Persons Summary Database\n(reports/tracking/tracked_persons_summary.csv)"]
+        CropExt --> ReID["OSNet MSMT17 Extractor\n(tracking/reid_embedding.py - L3)"]
+        ReID --> Emb["512-dim Re-ID Vector"]
+        TrackAttr & Emb --> Hybrid["Hybrid Matcher & LOOCV\n(tracking/hybrid_matching.py - L4)"]
+        Hybrid --> Summary["Tracked Persons Summary & JSON\n(reports/tracking/track_attributes.json)"]
     end
 ```
 
 ---
 
-## 🏛️ 1. Tổng quan Kiến trúc Mô hình
+## 1. Tổng quan Kiến trúc Mô hình
 
 Mô hình **`UnifiedPARModel`** ([models/hydraplus/par_model.py](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/models/hydraplus/par_model.py)) tổ chức theo cấu trúc **2 Tầng phân cấp (2-Level Hierarchy)**:
 
@@ -125,7 +128,7 @@ flowchart TD
 
 ---
 
-## 📂 2. Cấu trúc Thư mục Dự án
+## 2. Cấu trúc Thư mục Dự án
 
 ```text
 .
@@ -143,12 +146,18 @@ flowchart TD
 │   └── hydraplus/
 │       ├── backbone.py             # Feature Extractor (ResNet50)
 │       └── par_model.py            # UnifiedPARModel (SpatialAttention + 11 Heads)
-├── tracking/                       # Module Video Tracking & Attribute Aggregation
-│   ├── __init__.py
-│   ├── track.py                    # YOLOv8 + ByteTrack tracking pipeline
-│   ├── extract_crops.py            # Trích xuất crop người theo track_id (--clean)
-│   ├── track_attributes.py         # Gán & tổng hợp 40 thuộc tính UPAR cho từng track_id
-│   └── README.md                   # Tài liệu chi tiết module tracking
+├── tracking/                       # Module Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)
+│   ├── track.py                    # Level 1: YOLOv8 + ByteTrack tracking pipeline
+│   ├── extract_crops.py            # Level 2: Trích xuất crop người theo track_id
+│   ├── track_attributes.py         # Level 2: Gom nhóm xác suất 40 thuộc tính UPAR
+│   ├── reid_embedding.py           # Level 3: OSNet 512-dim embedding extractor
+│   ├── reid_validate_domain.py     # Level 3: Validate similarity phân phối real video
+│   ├── reid_validate_reentry.py    # Level 3: Validate Re-entry & Chống Pseudo-replication
+│   ├── reid_validate_reentry_combined.py # Level 3: Benchmark Re-ID trên 4 video domain
+│   ├── hybrid_matching.py          # Level 4: Hybrid Re-ID + Attribute + Time Penalty (LOOCV)
+│   ├── TECHNICAL_REPORT.md         # Báo cáo kỹ thuật & thực nghiệm chuyên sâu 4 Level
+│   ├── README.md                   # Hướng dẫn chi tiết sử dụng module tracking
+│   └── test_videos/                # Thư mục chứa các video test mẫu (.mp4, .avi)
 ├── training/
 │   ├── loss.py                     # MultiHeadPARLoss (Weighted CE + BCE + FocalLoss)
 │   ├── evaluate.py                 # Evaluator (mA, F1, Accuracy, Precision, Recall)
@@ -156,14 +165,19 @@ flowchart TD
 ├── inference/
 │   ├── predict_image.py            # Suy luận 1 ảnh, xuất bảng kết quả & vẽ chart
 │   └── filter_pedestrians.py       # Truy vấn & lọc danh sách người theo thuộc tính
+├── scratch/                        # Scripts kiểm toán & hỗ trợ điều tra 1 lần (audit trail)
 ├── checkpoints/
-│   └── hydraplus_upar_best.pth     # Checkpoint mô hình tốt nhất (lưu tại local project)
+│   ├── hydraplus_upar_best.pth     # Checkpoint UPAR PAR Model tốt nhất
+│   ├── osnet_x1_0_msmt17.pth       # Checkpoint OSNet Re-ID Model (512-dim)
+│   └── yolov8n.pt                  # Checkpoint YOLOv8 Detector
 ├── reports/
-│   ├── tracking/                   # Kết quả CSV, JSON, Bounding Box Video & Crops
-│   │   ├── crops/                  # Crop ảnh người theo từng track_id (track_<id>/frame_<n>.jpg)
+│   ├── tracking/                   # Kết quả CSV, JSON, Videos & Crops
+│   │   ├── _debug_images/          # Ảnh kiểm tra & debug trực quan
+│   │   ├── crops/                  # Crop ảnh người theo track_id (crops/<ten_video>/track_<id>/)
 │   │   ├── track_attributes.csv    # Bảng thuộc tính Top-1 từng track_id
-│   │   ├── track_attributes.json   # Chi tiết multi-label & 40 xác suất raw từng track_id
-│   │   └── tracked_persons_summary.csv # Bảng tổng hợp đối tượng (Tracking metadata + Attributes)
+│   │   ├── track_attributes.json   # Chi tiết multi-label & 40 xác suất raw & 512-dim Re-ID
+│   │   ├── reentry_ground_truth*.csv # Nhãn Ground-Truth Re-entry đánh giá
+│   │   └── tracked_persons_summary.csv # Bảng tổng hợp đối tượng
 │   ├── training_report.txt         # Báo cáo huấn luyện chi tiết
 │   ├── metrics.csv                 # Tóm tắt chỉ số Test/Val
 │   └── per_attribute_metrics.csv   # Chỉ số 40 thuộc tính
@@ -171,13 +185,12 @@ flowchart TD
 │   ├── test_dataset.py             # Test DataLoader & Target Builder
 │   ├── test_model.py               # Test Forward Pass mô hình
 │   └── test_training.py            # Test Forward + Loss + Backward Pass
-├── real_pedestrians.mp4            # Video mẫu dùng kiểm thử pipeline tracking
 └── README.md
 ```
 
 ---
 
-## 🛠️ 3. Cài đặt & Môi trường
+## 3. Cài đặt & Môi trường
 
 ### Bước 1 — Kích hoạt Môi trường ảo (Virtual Environment)
 ```powershell
@@ -191,7 +204,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 4. Huấn luyện Mô hình (Training)
+## 4. Huấn luyện Mô hình (Training)
 
 Chạy lệnh huấn luyện pipeline chính:
 ```powershell
@@ -211,7 +224,7 @@ python training/train.py --epochs 10 --batch_size 64
 
 ---
 
-## 📊 5. Đánh giá Mô hình (Evaluation)
+## 5. Đánh giá Mô hình (Evaluation)
 
 Chạy script đánh giá chuyên sâu trên tập dữ liệu Test hoặc Val:
 ```powershell
@@ -225,7 +238,7 @@ python training/evaluate.py --checkpoint checkpoints/hydraplus_upar_best.pth
 
 ---
 
-## 📈 6. Kết quả Huấn luyện Thực tế Nổi bật
+## 6. Kết quả Huấn luyện Thực tế Nổi bật
 
 Dưới đây là kết quả thực tế trên bộ dữ liệu UPAR (100,593 mẫu Train, 15,021 mẫu Val, 30,042 mẫu Test):
 
@@ -254,7 +267,7 @@ Dưới đây là kết quả thực tế trên bộ dữ liệu UPAR (100,593 m
 
 ---
 
-## 🔍 7. Hướng dẫn Suy luận & Sử dụng (Inference)
+## 7. Hướng dẫn Suy luận & Sử dụng (Inference)
 
 ### 7.1. Nhận diện Thuộc tính trên 1 Ảnh đơn (`predict_image.py`)
 ```powershell
@@ -280,47 +293,58 @@ python inference/filter_pedestrians.py --gender female --lower_type skirt
 
 ---
 
-## 🎥 8. Tracking (Level 1 - Baseline)
+## 8. Module Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)
 
-Hệ thống theo dõi người đi bộ trong video sử dụng **YOLOv8 (Person Detection)** kết hợp **ByteTrack (Object Tracking)**. Chi tiết đầy đủ xem tại [`tracking/README.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/README.md).
+Hệ thống theo dõi người đi bộ toàn diện trong video gồm **4 Level**:
+1. **Level 1 (Detection & Tracking)**: YOLOv8 + ByteTrack (`tracking/track.py`).
+2. **Level 2 (Attribute Aggregation)**: Trích crop & gom nhóm xác suất 40 thuộc tính UPAR (`tracking/extract_crops.py`, `tracking/track_attributes.py`).
+3. **Level 3 (Re-ID Embedding)**: Trích 512-dim embedding OSNet MSMT17 & kiểm thử Re-entry (`tracking/reid_embedding.py`, `tracking/reid_validate_reentry_combined.py`).
+4. **Level 4 (Hybrid Matching & Audit)**: Kết hợp Re-ID + Attribute + Time Penalty qua LOOCV Grid Search (`tracking/hybrid_matching.py`).
 
-### 8.1. Chạy Tracking Baseline
+> Chi tiết hướng dẫn vận hành xem tại [`tracking/README.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/README.md). Báo cáo phương pháp luận và kết quả nghiên cứu thực nghiệm 4 Level xem tại [`tracking/TECHNICAL_REPORT.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/TECHNICAL_REPORT.md).
+
+### 8.1. Chạy Tracking Baseline (Level 1)
 ```powershell
 # Chạy tracking từ file video:
-python tracking/track.py --source path/to/video.mp4 --save-video
+python tracking/track.py --source tracking/test_videos/real_pedestrians.mp4 --save-video
 
-# Chạy tracking từ webcam (nếu có):
+# Chạy tracking từ webcam:
 python tracking/track.py --source 0 --show
 ```
-* **Kết quả CSV**: Được tự động lưu tại `reports/tracking/<ten_video>_tracks.csv` dạng cấu trúc: `frame_id,track_id,x1,y1,x2,y2,confidence,timestamp`.
-* **Video Trực quan**: Lưu tại `reports/tracking/<ten_video>_tracked.mp4` khi dùng `--save-video`.
+* **Kết quả CSV**: Lưu tại `reports/tracking/<ten_video>_tracks.csv` (`frame_id,track_id,x1,y1,x2,y2,confidence,timestamp`).
 
-### 8.2. Trích xuất Crop theo Track ID
+### 8.2. Trích xuất Crop theo Track ID (Level 2)
 ```powershell
-python tracking/extract_crops.py --video path/to/video.mp4 --csv reports/tracking/video_tracks.csv --output-dir reports/tracking/crops --every-n-frames 5 --clean
+python tracking/extract_crops.py --video tracking/test_videos/real_pedestrians.mp4 --csv reports/tracking/real_pedestrians_tracks.csv --output-dir reports/tracking/crops/real_pedestrians --every-n-frames 5 --clean
 ```
-* Trích xuất các crop ảnh người đi bộ theo từng `track_id` để chuẩn bị truyền vào mô hình nhận diện thuộc tính PAR.
 
-### 8.3. Gán & Tổng hợp Thuộc tính cho Từng Track ID (`track_attributes.py`)
-Chạy script tổng hợp xác suất 40 thuộc tính UPAR qua các frame crop của từng `track_id`:
-
+### 8.3. Gán & Tổng hợp Thuộc tính UPAR (Level 2)
 ```powershell
 python tracking/track_attributes.py `
-  --crops-dir reports/tracking/crops `
+  --crops-dir reports/tracking/crops/real_pedestrians `
   --tracks-csv reports/tracking/real_pedestrians_tracks.csv `
   --checkpoint checkpoints/hydraplus_upar_best.pth `
   --output-dir reports/tracking `
   --min-frames 3
 ```
 
-* **Kết quả xuất ra**:
-  - `reports/tracking/track_attributes.csv`: Bảng thuộc tính Top-1 cho mỗi `track_id`.
-  - `reports/tracking/track_attributes.json`: Chi tiết danh sách multi-label active và 40 xác suất raw.
-  - `reports/tracking/tracked_persons_summary.csv`: Bản tổng hợp thông tin đối tượng (thời gian `first_seen`/`last_seen`, số crop, thuộc tính).
+### 8.4. Re-ID Embedding & Combined Re-Entry Benchmark (Level 3)
+```powershell
+# Trích xuất 512-dim embedding & validate Market1501:
+python tracking/reid_embedding.py
+
+# Benchmark bài toán Re-entry trên 4 video domain (Micro EER 9.67%, Macro EER 13.70%):
+python tracking/reid_validate_reentry_combined.py
+```
+
+### 8.5. Hybrid Matching & LOOCV Evaluation (Level 4)
+```powershell
+python tracking/hybrid_matching.py
+```
 
 ---
 
-## 🧪 9. Bộ Kiểm thử Tự động (Unit Tests)
+## 9. Bộ Kiểm thử Tự động (Unit Tests)
 
 Chạy các bài unit test để đảm bảo tính toàn vẹn của mã nguồn:
 
@@ -337,12 +361,12 @@ python tests/test_training.py
 
 ---
 
-## 🧭 10. Cập nhật Định hướng Phát triển (Roadmap)
+## 10. Cập nhật Định hướng Phát triển (Roadmap)
 
-1. **Phương án C (Hybrid Feature-level Part Pooling)**:
-   - Thử nghiệm việc chia Feature Map của ResNet50 thành 3 vùng (*Head Region*, *Upper Region*, *Lower Region*) ở cấp độ Feature Map thay vì Global Average Pooling toàn bộ. Giúp nâng cao thêm độ chính xác cho thuộc tính nhỏ (`glasses`, `hat`, `hair`).
-2. **Focal Loss Fine-Tuning**:
-   - Tăng cường trọng số Focal Loss cho các nhóm thuộc tính cực kỳ hiếm gặp như kính mát (`sunglasses`) hoặc túi xách nhỏ.
-3. **Level 2 & Level 3 Tracking Integration**:
-   - Đưa thuộc tính dự đoán từ PAR gán vào từng `track_id` (Attribute Tracking).
-   - Tích hợp Re-ID Embedding để duy trì ID nhất quán khi người đi bộ bị occlusion dài hoặc đi ra khỏi khung hình.
+- [x] **Level 1**: YOLOv8 + ByteTrack Video Tracking baseline.
+- [x] **Level 2**: Gom nhóm xác suất 40 thuộc tính UPAR qua các frame của `track_id`.
+- [x] **Level 3**: Tích hợp Re-ID Embedding (OSNet 512-dim), đánh giá Re-entry chống Pseudo-replication ($N=12$ events trên 4 video domains).
+- [x] **Level 4**: Hybrid Matching (Re-ID + Attribute + Time Penalty) đánh giá qua LOOCV Grid Search tránh Data Leakage.
+- [ ] **Multi-Camera Global Tracking**: Mở rộng từ Single-camera Re-entry sang Multi-camera Global Re-ID với Feature Store (FAISS/Redis).
+- [ ] **Person Retrieval Interface**: Phát triển UI / API truy vấn kết hợp lọc nhãn Thuộc tính (Attribute Filtering) và xếp hạng Re-ID (Re-ID Ranking).
+

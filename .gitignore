@@ -34,9 +34,12 @@ logs/
 reports/*
 !reports/.gitkeep
 
-# OS generated files
-.DS_Store
-Thumbs.db
+# Video files
+*.mp4
+*.avi
+
+# Generated Crops
+reports/tracking/crops/
 
 # Environment variables & secrets
 .env

@@ -97,8 +97,14 @@ def main():
     csv_path = output_dir / f"{run_name}_tracks.csv"
     video_out_path = output_dir / f"{run_name}_tracked.mp4"
 
-    print(f"[INFO] Loading model: {args.model}")
-    model = YOLO(args.model)
+    model_path = args.model
+    if not Path(model_path).exists() and Path("checkpoints") / model_path:
+        ckpt_candidate = Path("checkpoints") / model_path
+        if ckpt_candidate.exists():
+            model_path = str(ckpt_candidate)
+
+    print(f"[INFO] Loading model: {model_path}")
+    model = YOLO(model_path)
 
     # Mo capture rieng chi de lay fps/width/height khi can ghi video output.
     # Viec detect + track thuc su se dung model.track(..., stream=True) o duoi.
