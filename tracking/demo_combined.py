@@ -4,13 +4,14 @@
 tracking/demo_combined.py
 Generates a single combined demo video demonstrating:
 - Level 1: Multi-Object Tracking
-- Level 2: Attribute Recognition
+- Level 2: Attribute Recognition (11-Heads UPAR Side Info Panel)
 - Level 3: Person Re-Identification (Re-ID across track breaks, if GT available)
+
+Canvas output: 960x360 (640x360 main video frame + 320x360 side info panel)
 
 Usage:
     python tracking/demo_combined.py --video-name store-aisle-detection
     python tracking/demo_combined.py --video-name real_pedestrians
-    python tracking/demo_combined.py --video-name vtest --output reports/tracking/demo/demo_vtest.mp4
 """
 
 import os
@@ -42,11 +43,11 @@ COLOR_PALETTE = [
 ]
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate combined demo video for tracking, attributes, and Re-ID")
+    parser = argparse.ArgumentParser(description="Generate combined demo video with UPAR side info panel")
     parser.add_argument("--video-name", type=str, default="store-aisle-detection",
-                        help="Tên video (vd: 'real_pedestrians', 'store-aisle-detection', 'vtest', 'people-detection', 'person-bicycle-car-detection')")
+                        help="Tên video (vd: 'store-aisle-detection', 'real_pedestrians', 'vtest', 'people-detection')")
     parser.add_argument("--output", type=str, default=None,
-                        help="Đường dẫn file output mp4 (mặc định: reports/tracking/demo/demo_{video-name}.mp4)")
+                        help="Đường dẫn file output mp4 (mặc định: reports/tracking/demo/demo_combined_v2_full_attributes.mp4)")
     return parser.parse_args()
 
 def get_letter_name(index):
@@ -60,38 +61,34 @@ def get_letter_name(index):
 
 def get_fonts():
     try:
-        font_large = ImageFont.truetype("arial.ttf", 22)
-        font_medium = ImageFont.truetype("arial.ttf", 16)
-        font_small = ImageFont.truetype("arial.ttf", 13)
-        font_bold = ImageFont.truetype("arialbd.ttf", 16)
+        font_title = ImageFont.truetype("arialbd.ttf", 20)
+        font_large = ImageFont.truetype("arialbd.ttf", 16)
+        font_medium = ImageFont.truetype("arial.ttf", 14)
+        font_small = ImageFont.truetype("arial.ttf", 12)
+        font_bold = ImageFont.truetype("arialbd.ttf", 14)
     except Exception:
+        font_title = ImageFont.load_default()
         font_large = ImageFont.load_default()
         font_medium = ImageFont.load_default()
         font_small = ImageFont.load_default()
         font_bold = ImageFont.load_default()
-    return font_large, font_medium, font_small, font_bold
+    return font_title, font_large, font_medium, font_small, font_bold
 
 def draw_corner_rect(draw, bbox, color, stroke=2, corner_len=9):
     x1, y1, x2, y2 = bbox
-    # Main rectangle
     draw.rectangle([x1, y1, x2, y2], outline=color, width=stroke)
     
-    # Accent corners (thicker)
     c_w = stroke + 2
-    # Top-left corner
     draw.line([(x1, y1), (x1 + corner_len, y1)], fill=color, width=c_w)
     draw.line([(x1, y1), (x1, y1 + corner_len)], fill=color, width=c_w)
-    # Top-right corner
     draw.line([(x2, y1), (x2 - corner_len, y1)], fill=color, width=c_w)
     draw.line([(x2, y1), (x2, y1 + corner_len)], fill=color, width=c_w)
-    # Bottom-left corner
     draw.line([(x1, y2), (x1 + corner_len, y2)], fill=color, width=c_w)
     draw.line([(x1, y2), (x1, y2 - corner_len)], fill=color, width=c_w)
-    # Bottom-right corner
     draw.line([(x2, y2), (x2 - corner_len, y2)], fill=color, width=c_w)
     draw.line([(x2, y2), (x2, y2 - corner_len)], fill=color, width=c_w)
 
-def render_intro_card(w, h, duration_sec, fps, font_large, font_medium, font_small, video_filename, has_gt):
+def render_intro_card(w, h, duration_sec, fps, font_title, font_large, font_medium, font_small, video_filename, has_gt):
     frames = []
     total_frames = int(duration_sec * fps)
     
@@ -99,31 +96,121 @@ def render_intro_card(w, h, duration_sec, fps, font_large, font_medium, font_sma
         img = Image.new('RGB', (w, h), color=(15, 22, 32))
         draw = ImageDraw.Draw(img)
         
-        # Subtle header line
         draw.rectangle([0, 0, w, 6], fill=(50, 130, 240))
         
-        # Main Title
         if has_gt:
             title_text = "Demo: Video Tracking + Attribute Recognition + Person Re-Identification"
-            badge_text = "Tự động hợp nhất nhận dạng (L1 + L2 + L3) | Báo cáo tuần"
+            badge_text = "Tự động hợp nhất nhận dạng (L1 + L2 + L3) + UPAR 11-Heads Info Panel"
         else:
             title_text = "Demo: Video Tracking + Attribute Recognition"
-            badge_text = "Tự động nhận dạng & thuộc tính (L1 + L2) | Báo cáo tuần"
+            badge_text = "Tự động nhận dạng & thuộc tính (L1 + L2) + UPAR 11-Heads Info Panel"
 
-        draw.text((w // 2, h // 2 - 45), title_text, fill=(255, 255, 255), font=font_large, anchor="mm")
+        draw.text((w // 2, h // 2 - 45), title_text, fill=(255, 255, 255), font=font_title, anchor="mm")
         
-        # Subtitle
         sub_text = f"Nguồn video: {video_filename}"
-        draw.text((w // 2, h // 2 + 10), sub_text, fill=(180, 200, 220), font=font_medium, anchor="mm")
+        draw.text((w // 2, h // 2 + 10), sub_text, fill=(180, 200, 220), font=font_large, anchor="mm")
         
-        # Additional badge text
-        draw.text((w // 2, h // 2 + 50), badge_text, fill=(100, 220, 150), font=font_small, anchor="mm")
+        draw.text((w // 2, h // 2 + 50), badge_text, fill=(100, 220, 150), font=font_medium, anchor="mm")
         
-        # Bottom footnote
-        draw.text((w // 2, h - 25), "Màu sắc = danh tính (identity), không phải track ID thô", fill=(140, 160, 180), font=font_small, anchor="mm")
+        draw.text((w // 2, h - 25), "Màu sắc = danh tính (identity) | Side Panel = Đầy đủ 11 UPAR Attribute Heads", fill=(140, 160, 180), font=font_small, anchor="mm")
         
         frames.append(cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR))
     return frames
+
+def draw_info_panel(draw, panel_rect, selected_tid, identity_map, track_summary, is_reid_event, font_large, font_medium, font_small, font_bold):
+    px1, py1, px2, py2 = panel_rect
+    pw = px2 - px1
+    
+    # Background
+    draw.rectangle([px1, py1, px2, py2], fill=(18, 24, 36))
+    
+    if selected_tid is not None and selected_tid in identity_map:
+        id_info = identity_map[selected_tid]
+        identity_name = id_info['name']
+        identity_color = id_info['color_rgb']
+        
+        # Border separating video and panel
+        draw.line([(px1, py1), (px1, py2)], fill=identity_color, width=2)
+
+        # Header Box
+        header_rect = [px1 + 8, py1 + 8, px2 - 8, py1 + 48]
+        draw.rectangle(header_rect, fill=(26, 36, 54), outline=identity_color, width=2)
+        
+        header_title = f"THÔNG TIN: {identity_name}"
+        draw.text((px1 + 16, py1 + 16), header_title, fill=(255, 255, 255), font=font_bold)
+
+        if is_reid_event:
+            draw.rectangle([px2 - 110, py1 + 18, px2 - 14, py1 + 38], fill=(180, 50, 50), outline=(255, 215, 0), width=1)
+            draw.text((px2 - 62, py1 + 28), "RE-ID EVENT", fill=(255, 255, 255), font=font_small, anchor="mm")
+        else:
+            draw.text((px2 - 60, py1 + 28), "UPAR 11-HEADS", fill=(140, 160, 180), font=font_small, anchor="mm")
+
+        # Extract UPAR attribute heads
+        top1 = track_summary.get(selected_tid, {}).get('summary', {})
+        age = top1.get('age', 'N/A')
+        age_conf = top1.get('age_conf', 0.0)
+        gender = top1.get('gender', 'N/A')
+        gender_conf = top1.get('gender_conf', 0.0)
+        hair = top1.get('hair', 'N/A')
+        hair_conf = top1.get('hair_conf', 0.0)
+        glasses = top1.get('glasses', 'None')
+        glasses_conf = top1.get('glasses_conf', 0.0)
+        hat = top1.get('hat', 'None')
+        hat_conf = top1.get('hat_conf', 0.0)
+        upper_len = top1.get('upper_length', 'N/A')
+        upper_color = top1.get('upper_color', 'N/A')
+        lower_len = top1.get('lower_length', 'N/A')
+        lower_color = top1.get('lower_color', 'N/A')
+        lower_type = top1.get('lower_type', 'N/A')
+        bag = top1.get('bag', 'None')
+
+        # Formatted lines
+        age_str = f"{age} ({int(round(age_conf * 100))}%)" if age_conf > 0 else f"{age}"
+        gender_str = f"{gender} ({int(round(gender_conf * 100))}%)" if gender_conf > 0 else f"{gender}"
+        hair_str = f"{hair} ({int(round(hair_conf * 100))}%)" if hair_conf > 0 else f"{hair}"
+        glasses_str = f"{glasses}" + (f" ({int(round(glasses_conf * 100))}%)" if glasses != "None" and glasses_conf > 0 else "")
+        hat_str = f"{hat}" + (f" ({int(round(hat_conf * 100))}%)" if hat != "No Hat" and hat != "None" and hat_conf > 0 else "")
+        upper_str = f"{upper_len} sleeve, {upper_color}".strip(", ")
+        lower_str = f"{lower_len}, {lower_color}, {lower_type}".strip(", ")
+        bag_str = f"{bag}"
+
+        lines = [
+            ("Age:", age_str),
+            ("Gender:", gender_str),
+            ("Hair:", hair_str),
+            ("Glasses:", glasses_str),
+            ("Hat:", hat_str),
+            ("Upper:", upper_str),
+            ("Lower:", lower_str),
+            ("Bag:", bag_str),
+        ]
+
+        start_y = py1 + 60
+        line_height = 32
+
+        for i, (label, val) in enumerate(lines):
+            cur_y = start_y + i * line_height
+            
+            if i % 2 == 1:
+                draw.rectangle([px1 + 10, cur_y - 2, px2 - 10, cur_y + 26], fill=(23, 31, 46))
+            
+            draw.text((px1 + 16, cur_y + 4), label, fill=(160, 185, 210), font=font_bold)
+            draw.text((px1 + 90, cur_y + 4), val, fill=(255, 255, 255), font=font_medium)
+
+        draw.text((px1 + pw // 2, py2 - 18), "Identity-level UPAR attribute summary", fill=(100, 120, 145), font=font_small, anchor="mm")
+
+    else:
+        # Empty frame state
+        draw.line([(px1, py1), (px1, py2)], fill=(60, 75, 90), width=2)
+        
+        header_rect = [px1 + 8, py1 + 8, px2 - 8, py1 + 48]
+        draw.rectangle(header_rect, fill=(26, 36, 54), outline=(70, 85, 100), width=1)
+        draw.text((px1 + 16, py1 + 16), "THÔNG TIN: Không có", fill=(180, 190, 200), font=font_bold)
+
+        msg1 = "Khong co doi tuong nao"
+        msg2 = "trong khung hinh"
+        draw.text((px1 + pw // 2, py1 + 150), msg1, fill=(140, 155, 175), font=font_medium, anchor="mm")
+        draw.text((px1 + pw // 2, py1 + 175), msg2, fill=(140, 155, 175), font=font_medium, anchor="mm")
 
 def main():
     args = parse_args()
@@ -131,7 +218,6 @@ def main():
 
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    # Infer video file path (.mp4 or .avi)
     mp4_path = os.path.join(BASE_DIR, 'tracking', 'test_videos', f"{video_name}.mp4")
     avi_path = os.path.join(BASE_DIR, 'tracking', 'test_videos', f"{video_name}.avi")
     if os.path.exists(mp4_path):
@@ -139,7 +225,7 @@ def main():
     elif os.path.exists(avi_path):
         video_path = avi_path
     else:
-        video_path = mp4_path  # Fallback
+        video_path = mp4_path
 
     csv_path = os.path.join(BASE_DIR, 'reports', 'tracking', video_name, 'tracks.csv')
     attr_path = os.path.join(BASE_DIR, 'reports', 'tracking', video_name, 'attributes.json')
@@ -151,9 +237,12 @@ def main():
     if args.output:
         output_video_path = args.output
     else:
-        output_video_path = os.path.join(output_dir, f"demo_{video_name}.mp4")
+        if video_name == "store-aisle-detection":
+            output_video_path = os.path.join(output_dir, "demo_combined_v2_full_attributes.mp4")
+        else:
+            output_video_path = os.path.join(output_dir, f"demo_{video_name}_v2.mp4")
 
-    print(f"=== STARTING DEMO VIDEO GENERATION FOR '{video_name}' ===")
+    print(f"=== STARTING DEMO VIDEO GENERATION (V2 FULL ATTRIBUTES) FOR '{video_name}' ===")
     
     # 1. Load Data
     if not os.path.exists(csv_path):
@@ -178,7 +267,6 @@ def main():
     else:
         print(f"Warning: attributes.json not found at {attr_path}")
 
-    # Check GT file existence
     has_gt = False
     df_gt = None
     if os.path.exists(gt_path):
@@ -196,7 +284,6 @@ def main():
 
     if has_gt:
         print(f"Reading ground truth CSV: {gt_path}")
-        # Build Connected Components via Union-Find
         parent = {tid: tid for tid in all_track_ids}
         def find(i):
             if parent[i] == i:
@@ -225,7 +312,6 @@ def main():
 
         for idx, root in enumerate(sorted_roots):
             group_tids = clusters[root]
-            # Sort group_tids by first_seen_frame if available
             group_tids.sort(key=lambda t: track_summary.get(t, {}).get("first_seen_frame", t))
             
             letter_name = get_letter_name(idx)
@@ -239,7 +325,6 @@ def main():
                     "color_rgb": color_rgb
                 }
 
-            # Build prev_track_map for Re-ID banners
             for i in range(1, len(group_tids)):
                 prev_t = group_tids[i - 1]
                 cur_t = group_tids[i]
@@ -254,7 +339,6 @@ def main():
                 "color_rgb": color_rgb
             }
 
-    # Precalculate Re-ID banners info if prev_track_map exists
     reid_banners = {}
     for tid, prev_tid in prev_track_map.items():
         if tid in track_summary and prev_tid in track_summary:
@@ -280,10 +364,12 @@ def main():
     orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames_orig = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    out_w, out_h = 640, 360
-    scale_x, scale_y = out_w / orig_w, out_h / orig_h
+    # Target resolution: Video frame 640x360 + Panel width 320 -> Canvas 960x360
+    v_w, v_h = 640, 360
+    panel_w = 320
+    out_w, out_h = v_w + panel_w, v_h
+    scale_x, scale_y = v_w / orig_w, v_h / orig_h
 
-    # Output FPS selection logic
     if orig_fps > 45.0:
         output_fps = 30.0
         sample_step = 2
@@ -292,33 +378,30 @@ def main():
         sample_step = 1
 
     print(f"Video input: {orig_w}x{orig_h}, {orig_fps:.2f} FPS, {total_frames_orig} frames")
-    print(f"Target output: {out_w}x{out_h}, {output_fps:.2f} FPS")
+    print(f"Target canvas output: {out_w}x{out_h} (Video: 640x360 + Panel: 320x360), {output_fps:.2f} FPS")
 
-    # 3. Initialize Video Writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_video_path, fourcc, output_fps, (out_w, out_h))
     
-    font_large, font_medium, font_small, font_bold = get_fonts()
+    font_title, font_large, font_medium, font_small, font_bold = get_fonts()
 
     # 4. Render Intro Card (3.0 seconds)
     print("Rendering 3-second Intro Card...")
     video_filename = os.path.basename(video_path)
-    intro_frames = render_intro_card(out_w, out_h, duration_sec=3.0, fps=output_fps, font_large=font_large, font_medium=font_medium, font_small=font_small, video_filename=video_filename, has_gt=has_gt)
+    intro_frames = render_intro_card(out_w, out_h, duration_sec=3.0, fps=output_fps, font_title=font_title, font_large=font_large, font_medium=font_medium, font_small=font_small, video_filename=video_filename, has_gt=has_gt)
     for frame in intro_frames:
         out.write(frame)
 
     # 5. Process Main Video Frames
     print("Processing main video frames...")
     
-    # Screenshots (only for store-aisle-detection if specified)
     screenshot_targets = {}
     if video_name == "store-aisle-detection":
         screenshot_targets = {
-            725: os.path.join(output_dir, "screenshot_1_frame725_personB_track7.jpg"),
-            1575: os.path.join(output_dir, "screenshot_2_frame1575_personA_track13.jpg"),
-            2220: os.path.join(output_dir, "screenshot_3_frame2220_personD_track16.jpg"),
-            2885: os.path.join(output_dir, "screenshot_4_frame2885_personC_track18.jpg"),
-            3550: os.path.join(output_dir, "screenshot_5_frame3550_personD_track22.jpg")
+            725: os.path.join(output_dir, "v2_screenshot_1_frame725_reid_personB.jpg"),
+            1575: os.path.join(output_dir, "v2_screenshot_2_frame1575_reid_personA.jpg"),
+            2000: os.path.join(output_dir, "v2_screenshot_3_frame2000_normal_personD.jpg"),
+            2885: os.path.join(output_dir, "v2_screenshot_4_frame2885_reid_personC.jpg")
         }
     extracted_screenshots = {}
 
@@ -330,10 +413,10 @@ def main():
         if not ret:
             break
         
-        # Resize frame to target output resolution (640x360)
-        frame_resized = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
+        # Resize original video frame to 640x360
+        frame_v = cv2.resize(frame, (v_w, v_h), interpolation=cv2.INTER_AREA)
 
-        # Trimming & Speed Up Logic
+        # Trimming & Speed Up Logic for store-aisle-detection
         if video_name == "store-aisle-detection":
             if frame_idx < 539:
                 if frame_idx % 6 != 0:
@@ -348,16 +431,23 @@ def main():
                 frame_idx += 1
                 continue
 
-        # Convert BGR OpenCV frame to RGB Pillow image
-        img_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-        img_pil = Image.fromarray(img_rgb)
-        draw = ImageDraw.Draw(img_pil, 'RGBA')
+        # Create 960x360 Canvas
+        canvas_img = Image.new('RGB', (out_w, out_h), color=(15, 22, 32))
+        
+        # Paste video frame on left side (0, 0)
+        img_v_rgb = cv2.cvtColor(frame_v, cv2.COLOR_BGR2RGB)
+        canvas_img.paste(Image.fromarray(img_v_rgb), (0, 0))
+
+        draw = ImageDraw.Draw(canvas_img, 'RGBA')
 
         # Get active tracks for current frame
         frame_tracks = df_tracks[df_tracks['frame_id'] == frame_idx]
         
         active_identities = set()
-        
+        reid_active_track_in_frame = None
+        largest_track_in_frame = None
+        max_bbox_area = -1.0
+
         for _, row in frame_tracks.iterrows():
             tid = int(row['track_id'])
             if tid not in identity_map:
@@ -374,10 +464,16 @@ def main():
             x1, y1, x2, y2 = float(row['x1']) * scale_x, float(row['y1']) * scale_y, float(row['x2']) * scale_x, float(row['y2']) * scale_y
             bbox = [int(x1), int(y1), int(x2), int(y2)]
 
-            # Draw Bbox with identity color
+            # Track largest bbox
+            area = (x2 - x1) * (y2 - y1)
+            if area > max_bbox_area:
+                max_bbox_area = area
+                largest_track_in_frame = tid
+
+            # Draw Bbox on video
             draw_corner_rect(draw, bbox, color, stroke=2, corner_len=9)
 
-            # Get Attribute text
+            # Get Attribute text for short 2-line label
             top1 = track_summary.get(tid, {}).get('summary', {})
             gender = top1.get('gender', '')
             upper_color = top1.get('upper_color', '')
@@ -399,12 +495,12 @@ def main():
                 b_info = reid_banners[tid]
                 if b_info['start_frame'] <= frame_idx <= b_info['end_frame']:
                     line2_str = b_info['msg']
+                    reid_active_track_in_frame = tid
 
             # Calculate Label Box position above bbox
             lbl_x = bbox[0]
             lbl_y = bbox[1] - 8
 
-            # Line 1 size
             bbox_l1 = font_bold.getbbox(line1_str)
             w_l1 = bbox_l1[2] - bbox_l1[0]
             h_l1 = bbox_l1[3] - bbox_l1[1]
@@ -419,17 +515,12 @@ def main():
                 w_total = max(w_total, w_l2 + 14)
                 h_total += h_l2 + 6
 
-            # Ensure label doesn't go off top of screen
             box_top = max(8, lbl_y - h_total)
             box_rect = [lbl_x, box_top, lbl_x + w_total, box_top + h_total]
 
-            # Draw semi-transparent dark container background for label
             draw.rectangle(box_rect, fill=(15, 22, 32, 220), outline=color, width=1)
-
-            # Draw Line 1
             draw.text((lbl_x + 7, box_top + 4), line1_str, fill=(255, 255, 255), font=font_bold)
 
-            # Draw Line 2 if Re-ID active
             if line2_str:
                 draw.text((lbl_x + 7, box_top + 4 + h_l1 + 4), line2_str, fill=(255, 215, 0), font=font_small)
 
@@ -441,11 +532,38 @@ def main():
 
         # 7. Bottom Watermark Banner
         bm_text = "Màu sắc = danh tính (identity), không phải track ID thô"
-        draw.rectangle([12, out_h - 32, out_w - 12, out_h - 8], fill=(15, 22, 32, 190))
-        draw.text((out_w // 2, out_h - 20), bm_text, fill=(220, 230, 240), font=font_small, anchor="mm")
+        draw.rectangle([12, v_h - 32, v_w - 12, v_h - 8], fill=(15, 22, 32, 190))
+        draw.text((v_w // 2, v_h - 20), bm_text, fill=(220, 230, 240), font=font_small, anchor="mm")
+
+        # 8. Selection Rule for UPAR Side Info Panel:
+        # Priority 1: Re-ID active track
+        # Priority 2: Largest bbox track in frame
+        if reid_active_track_in_frame is not None:
+            selected_tid = reid_active_track_in_frame
+            is_reid_event = True
+        elif largest_track_in_frame is not None:
+            selected_tid = largest_track_in_frame
+            is_reid_event = False
+        else:
+            selected_tid = None
+            is_reid_event = False
+
+        # Draw Side Info Panel (640..960, 0..360)
+        draw_info_panel(
+            draw=draw,
+            panel_rect=[640, 0, 960, 360],
+            selected_tid=selected_tid,
+            identity_map=identity_map,
+            track_summary=track_summary,
+            is_reid_event=is_reid_event,
+            font_large=font_large,
+            font_medium=font_medium,
+            font_small=font_small,
+            font_bold=font_bold
+        )
 
         # Convert back to OpenCV BGR
-        final_frame = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+        final_frame = cv2.cvtColor(np.array(canvas_img), cv2.COLOR_RGB2BGR)
         out.write(final_frame)
         written_frames_count += 1
 
@@ -468,7 +586,7 @@ def main():
     out.release()
     print("Video encoding complete!")
 
-    # 8. Post-processing Verification & Bitrate Check
+    # 9. Post-processing Verification & Bitrate Check
     final_duration = written_frames_count / output_fps
     file_size_mb = os.path.getsize(output_video_path) / (1024 * 1024)
     
