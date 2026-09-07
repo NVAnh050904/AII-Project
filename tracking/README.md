@@ -109,14 +109,23 @@ python tracking/hybrid_matching.py
 ---
 
 ### Demo Combined Video Generation (`demo_combined.py`)
-Tạo video demo duy nhất kết hợp trực quan Level 1 (Tracking) + Level 2 (Attribute) + Level 3 (Re-ID):
+Tạo video demo hợp nhất kết hợp trực quan Level 1 (Tracking) + Level 2 (Attribute - Bảng thuộc tính UPAR 11-Heads) + Level 3 (Re-ID):
 
 ```powershell
-python tracking/demo_combined.py
+# Chạy demo cho video mặc định (store-aisle-detection):
+python tracking/demo_combined.py --video-name store-aisle-detection
+
+# Chạy demo cho bất kỳ video nào khác (chế độ graceful tự động nếu không có reentry_ground_truth.csv):
+python tracking/demo_combined.py --video-name real_pedestrians
+python tracking/demo_combined.py --video-name classroom
 ```
+
+* **Điểm nổi bật V2**:
+  - **Canvas 960x360 (Không che khuất)**: Mở rộng 320px lề phải làm Side Info Panel hiển thị ĐẦY ĐỦ 11 head thuộc tính UPAR (Age, Gender, Hair, Glasses, Hat, Upper, Lower, Bag) cho identity đang chọn.
+  - **Quy tắc chọn Identity thông minh**: Tự động hiển thị đối tượng có Bbox lớn nhất trong frame; tự động chuyển sang hiển thị identity vừa được nhận lại kèm thẻ `RE-ID EVENT` khi có sự kiện Re-ID xảy ra.
 * **Output**:
-  - `reports/tracking/demo/demo_combined_tracking_attribute_reid.mp4` (Video demo hợp nhất 62s, 30 FPS, < 30 MB)
-  - `reports/tracking/demo/screenshot_*.jpg` (5 ảnh chụp màn hình minh chứng các khoảnh khắc Re-ID)
+  - `reports/tracking/demo/demo_combined_v2_full_attributes.mp4` (Video demo hợp nhất 960x360, 30 FPS, < 30 MB)
+  - `reports/tracking/demo/v2_screenshot_*.jpg` (4 ảnh chụp màn hình minh chứng các khoảnh khắc Re-ID và theo dõi thuộc tính)
 
 ---
 
@@ -135,6 +144,6 @@ tracking/
 ├── reid_validate_reentry.py                # Level 3: Validate Re-entry & Chống Pseudo-replication
 ├── reid_validate_reentry_combined.py       # Level 3: Benchmark Re-ID trên 4 video
 ├── hybrid_matching.py                      # Level 4: Hybrid Score & LOOCV Grid Search
-├── demo_combined.py                        # Video Demo Hợp nhất Level 1 + Level 2 + Level 3
+├── demo_combined.py                        # Video Demo Hợp nhất V2 (Canvas 960x360 + UPAR Side Panel)
 └── test_videos/                            # Thư mục lưu trữ video thử nghiệm mẫu (.mp4, .avi)
 ```

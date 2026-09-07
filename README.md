@@ -173,7 +173,7 @@ flowchart TD
 │   └── yolov8n.pt                  # Checkpoint YOLOv8 Detector
 ├── reports/
 │   ├── tracking/                   # Kết quả Tracking theo cấu trúc thư mục con
-│   │   ├── demo/                   # Video demo duy nhất & 5 ảnh screenshot Re-ID
+│   │   ├── demo/                   # Video demo V2 (Canvas 960x360 + UPAR Side Panel) & 4 ảnh screenshot Re-ID
 │   │   ├── crops/                  # Crop ảnh người theo track_id (crops/<ten_video>/track_<id>/)
 │   │   ├── <ten_video>/            # 5 Thư mục video chính thức (tracks.csv, tracked.mp4, attributes.json, reentry_ground_truth.csv)
 │   │   ├── _exploration_archive/   # Thư mục lưu trữ 7 video thử nghiệm audit trail
