@@ -101,16 +101,25 @@ def render_intro_card(w, h, duration_sec, fps, font_title, font_large, font_medi
         if has_gt:
             title_text = "Demo: Video Tracking + Attribute Recognition + Person Re-Identification"
             badge_text = "Tự động hợp nhất nhận dạng (L1 + L2 + L3) + UPAR 11-Heads Info Panel"
+            
+            draw.text((w // 2, h // 2 - 45), title_text, fill=(255, 255, 255), font=font_title, anchor="mm")
+            
+            sub_text = f"Nguồn video: {video_filename}"
+            draw.text((w // 2, h // 2 + 10), sub_text, fill=(180, 200, 220), font=font_large, anchor="mm")
+            
+            draw.text((w // 2, h // 2 + 50), badge_text, fill=(100, 220, 150), font=font_medium, anchor="mm")
         else:
             title_text = "Demo: Video Tracking + Attribute Recognition"
+            note_text = "Lưu ý: Video này không có trường hợp mất track/xuất hiện lại (Re-ID)."
             badge_text = "Tự động nhận dạng & thuộc tính (L1 + L2) + UPAR 11-Heads Info Panel"
-
-        draw.text((w // 2, h // 2 - 45), title_text, fill=(255, 255, 255), font=font_title, anchor="mm")
-        
-        sub_text = f"Nguồn video: {video_filename}"
-        draw.text((w // 2, h // 2 + 10), sub_text, fill=(180, 200, 220), font=font_large, anchor="mm")
-        
-        draw.text((w // 2, h // 2 + 50), badge_text, fill=(100, 220, 150), font=font_medium, anchor="mm")
+            
+            draw.text((w // 2, h // 2 - 55), title_text, fill=(255, 255, 255), font=font_title, anchor="mm")
+            draw.text((w // 2, h // 2 - 20), note_text, fill=(255, 205, 80), font=font_medium, anchor="mm")
+            
+            sub_text = f"Nguồn video: {video_filename}"
+            draw.text((w // 2, h // 2 + 15), sub_text, fill=(180, 200, 220), font=font_large, anchor="mm")
+            
+            draw.text((w // 2, h // 2 + 55), badge_text, fill=(100, 220, 150), font=font_medium, anchor="mm")
         
         draw.text((w // 2, h - 25), "Màu sắc = danh tính (identity) | Side Panel = Đầy đủ 11 UPAR Attribute Heads", fill=(140, 160, 180), font=font_small, anchor="mm")
         
