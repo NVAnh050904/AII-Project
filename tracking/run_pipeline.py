@@ -60,9 +60,12 @@ def run_command(cmd, step_name):
 def main():
     args = parse_args()
     video_name = args.video_name
-    python_exe = sys.executable
-
     base_dir = Path(__file__).resolve().parent.parent
+    venv_python = base_dir / ".venv" / "Scripts" / "python.exe"
+    if venv_python.exists():
+        python_exe = str(venv_python)
+    else:
+        python_exe = sys.executable
 
     # 0. Resolve Video Path
     if args.video_path:
