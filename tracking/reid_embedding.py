@@ -185,13 +185,27 @@ def validate_market1501(extractor: ReIDExtractor, dataset_root: str = "3 Dataset
         return True
 
 
-def process_video_tracks(extractor: ReIDExtractor, crops_dir: str = "reports/tracking/crops/real_pedestrians", json_path: str = "reports/tracking/track_attributes.json"):
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser(description="Extract Re-ID embeddings for track crops")
+    parser.add_argument("--crops-dir", type=str, default=None,
+                        help="Path to folder containing crop subdirectories (e.g. reports/tracking/crops/real_pedestrians)")
+    parser.add_argument("--json-path", type=str, default=None,
+                        help="Path to attributes.json file to update with embeddings")
+    parser.add_argument("--video-name", type=str, default=None,
+                        help="Tên video (vd: 'real_pedestrians', 'store-aisle-detection')")
+    parser.add_argument("--skip-market-validation", action="store_true",
+                        help="Bỏ qua bước validate Market-1501 để chạy nhanh hơn")
+    return parser.parse_args()
+
+
+def process_video_tracks(extractor: ReIDExtractor, crops_dir: str, json_path: str):
     """
     Extracts mean-pooled L2-normalized embeddings for each track in crops_dir,
-    updates track_attributes.json, and prints 7x7 track similarity matrix.
+    updates attributes.json, and prints track similarity matrix.
     """
     print("\n" + "=" * 70)
-    print("STEP 2: TRACK EMBEDDING AGGREGATION & 7x7 MATRIX ANALYSIS")
+    print("STEP 2: TRACK EMBEDDING AGGREGATION & MATRIX ANALYSIS")
     print("=" * 70)
 
     crops_path = Path(crops_dir)
@@ -199,6 +213,15 @@ def process_video_tracks(extractor: ReIDExtractor, crops_dir: str = "reports/tra
 
     if not crops_path.exists():
         raise FileNotFoundError(f"[ERROR] Crops directory not found: {crops_path}")
+
+    json_data = {}
+    if json_file.exists():
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                json_data = json.load(f)
+        except Exception as e:
+            print(f"[WARNING] Could not load existing JSON '{json_file}': {e}")
+            json_data = {}
 
     track_folders = sorted(
         [d for d in crops_path.iterdir() if d.is_dir() and d.name.startswith("track_")],
@@ -224,63 +247,81 @@ def process_video_tracks(extractor: ReIDExtractor, crops_dir: str = "reports/tra
         print(f"[PROC] Track {t_id:2d}: {len(crop_files):2d} crops -> 512-dim embedding computed.")
 
         str_id = str(t_id)
-        emb_list = [round(float(v), 6) for v in track_embeddings[i]]
+        emb_list = [round(float(v), 6) for v in mean_emb]
         if str_id in json_data:
             json_data[str_id]["embedding"] = emb_list
         else:
             json_data[str_id] = {"track_id": t_id, "embedding": emb_list}
 
-    with open(json_file, "w", encoding="utf-8") as f:
-        json.dump(json_data, f, indent=2)
+    if json_file.parent.exists():
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=2)
+        print(f"\n[OUTPUT] Updated '{json_file.resolve()}' with 'embedding' field ({len(track_ids)} tracks).")
 
-    print(f"\n[OUTPUT] Updated '{json_file.resolve()}' with 'embedding' field ({len(track_ids)} tracks).")
+        # Also sync to track_attributes.json or attributes.json if both exist in folder
+        alt_json = json_file.parent / ("track_attributes.json" if json_file.name == "attributes.json" else "attributes.json")
+        with open(alt_json, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=2)
+        print(f"[OUTPUT] Synced embeddings to '{alt_json.resolve()}'.")
 
-    # --- Compute 7x7 Cosine Similarity Matrix ---
-    sim_matrix_7x7 = np.dot(track_embeddings, track_embeddings.T)
+    # --- Compute Cosine Similarity Matrix ---
+    if len(track_embeddings) > 0:
+        sim_matrix = np.dot(track_embeddings, track_embeddings) if len(track_embeddings) == 1 else np.dot(track_embeddings, np.array(track_embeddings).T)
 
-    print("\n--- 7x7 TRACK COSINE SIMILARITY MATRIX (real_pedestrians.mp4) ---")
-    header_str = f"{'Track ID':<10}" + "".join([f"Track_{t_id:<6}" for t_id in track_ids])
-    print(header_str)
-    print("-" * len(header_str))
+        print(f"\n--- TRACK COSINE SIMILARITY MATRIX ({len(track_ids)} tracks) ---")
+        header_str = f"{'Track ID':<10}" + "".join([f"Track_{t_id:<6}" for t_id in track_ids])
+        print(header_str)
+        print("-" * len(header_str))
 
-    high_sim_pairs = []
+        high_sim_pairs = []
 
-    for i, t1 in enumerate(track_ids):
-        row_str = f"Track_{t1:<5}"
-        for j, t2 in enumerate(track_ids):
-            val = sim_matrix_7x7[i, j]
-            row_str += f"{val:12.4f}"
-            if i < j and val > 0.7:
-                high_sim_pairs.append((t1, t2, val))
-        print(row_str)
+        for i, t1 in enumerate(track_ids):
+            row_str = f"Track_{t1:<5}"
+            for j, t2 in enumerate(track_ids):
+                val = sim_matrix[i, j] if sim_matrix.ndim > 1 else sim_matrix[0]
+                row_str += f"{val:12.4f}"
+                if i < j and val > 0.7:
+                    high_sim_pairs.append((t1, t2, val))
+            print(row_str)
 
-    print("\n--- ANALYSIS OF TRACK COSINE SIMILARITY MATRIX ---")
-    if high_sim_pairs:
-        print("[NOTICE] Track pairs with high cosine similarity (> 0.7):")
-        for t1, t2, val in high_sim_pairs:
-            print(f"  - Track {t1} vs Track {t2}: Cosine Sim = {val:.4f}")
-    else:
-        print("[OK] No track pairs exceed 0.7 cosine similarity threshold. All tracks show clear feature distinction.")
-
-    print("\n[NOTE] Note: These 7 tracks represent distinct individuals in the video. The matrix confirms distinct person separation without identity overlap.")
+        print("\n--- ANALYSIS OF TRACK COSINE SIMILARITY MATRIX ---")
+        if high_sim_pairs:
+            print("[NOTICE] Track pairs with high cosine similarity (> 0.7):")
+            for t1, t2, val in high_sim_pairs:
+                print(f"  - Track {t1} vs Track {t2}: Cosine Sim = {val:.4f}")
+        else:
+            print("[OK] No track pairs exceed 0.7 cosine similarity threshold. All tracks show clear feature distinction.")
 
 
 def main():
+    args = parse_args()
     print("=" * 70)
     print("LEVEL 3: RE-IDENTIFICATION (RE-ID) FEATURE EMBEDDING PIPELINE")
     print("=" * 70)
 
     extractor = ReIDExtractor(model_name="osnet_x1_0", checkpoint_path=DEFAULT_CHECKPOINT_PATH)
 
-    # Step 1: Validate on Market1501
-    valid_model = validate_market1501(extractor, dataset_root="3 Datasets/Market1501", num_identities=20)
+    # Step 1: Validate on Market1501 (unless skipped)
+    if not args.skip_market_validation:
+        try:
+            valid_model = validate_market1501(extractor, dataset_root="3 Datasets/Market1501", num_identities=20)
+            if not valid_model:
+                print("[STOP] Model validation failed.")
+                sys.exit(1)
+        except Exception as e:
+            print(f"[NOTICE] Skipping Market1501 validation: {e}")
 
-    if not valid_model:
-        print("[STOP] Model validation failed. Please select an alternative model checkpoint.")
-        sys.exit(1)
+    # Resolve crops_dir and json_path
+    if args.video_name:
+        video_name = args.video_name
+        crops_dir = f"reports/tracking/crops/{video_name}"
+        json_path = f"reports/tracking/{video_name}/attributes.json"
+    else:
+        crops_dir = args.crops_dir or "reports/tracking/crops/real_pedestrians"
+        json_path = args.json_path or "reports/tracking/real_pedestrians/attributes.json"
 
     # Step 2: Apply to video tracks
-    process_video_tracks(extractor, crops_dir="reports/tracking/crops", json_path="reports/tracking/track_attributes.json")
+    process_video_tracks(extractor, crops_dir=crops_dir, json_path=json_path)
 
 
 if __name__ == "__main__":
