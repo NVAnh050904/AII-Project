@@ -55,8 +55,9 @@ flowchart LR
         Checkpoint --> TrackAttr
         CropExt --> ReID["OSNet MSMT17 Extractor\n(tracking/reid_embedding.py - L3)"]
         ReID --> Emb["512-dim Re-ID Vector"]
-        TrackAttr & Emb --> Hybrid["Hybrid Matcher & LOOCV\n(tracking/hybrid_matching.py - L4)"]
-        Hybrid --> Summary["Tracked Persons Summary & JSON\n(reports/tracking/<ten_video>/attributes.json)"]
+        TrackAttr & Emb --> AttrJSON["Attributes JSON per Video\n(reports/tracking/<ten_video>/attributes.json)"]
+        TrackAttr --> GlobalCSV["Tracked Persons Summary\n(reports/tracking/tracked_persons_summary.csv - file gop toan cuc)"]
+        AttrJSON --> Hybrid["Hybrid Matcher & LOOCV\n(tracking/hybrid_matching.py - L4)"]
     end
 ```
 
@@ -147,7 +148,7 @@ flowchart TD
 │       ├── backbone.py             # Feature Extractor (ResNet50)
 │       └── par_model.py            # UnifiedPARModel (SpatialAttention + 11 Heads)
 ├── tracking/                       # Module Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)
-│   ├── run_pipeline.py             # Orchestrator tự động hóa 1 lệnh (Level 1 -> 5)
+│   ├── run_pipeline.py             # Orchestrator tự động hóa 4 bước (Tracking, Crop, Attribute, Embedding) + Video Demo V2
 │   ├── track.py                    # Level 1: YOLOv8 + ByteTrack tracking pipeline
 │   ├── extract_crops.py            # Level 2: Trích xuất crop người theo track_id
 │   ├── track_attributes.py         # Level 2: Gom nhóm xác suất 40 thuộc tính UPAR
@@ -297,59 +298,28 @@ python inference/filter_pedestrians.py --gender female --lower_type skirt
 
 ## 8. Module Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)
 
-Hệ thống theo dõi người đi bộ toàn diện trong video gồm **4 Level**:
-1. **Level 1 (Detection & Tracking)**: YOLOv8 + ByteTrack (`tracking/track.py`).
-2. **Level 2 (Attribute Aggregation)**: Trích crop & gom nhóm xác suất 40 thuộc tính UPAR (`tracking/extract_crops.py`, `tracking/track_attributes.py`).
-3. **Level 3 (Re-ID Embedding)**: Trích 512-dim embedding OSNet MSMT17 & kiểm thử Re-entry (`tracking/reid_embedding.py`, `tracking/reid_validate_reentry_combined.py`).
-4. **Level 4 (Hybrid Matching & Audit)**: Kết hợp Re-ID + Attribute + Time Penalty qua LOOCV Grid Search (`tracking/hybrid_matching.py`).
+Hệ thống theo dõi người đi bộ toàn diện trong video gồm **4 Level kỹ thuật**:
 
-> Chi tiết hướng dẫn vận hành xem tại [`tracking/README.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/README.md). Báo cáo phương pháp luận và kết quả nghiên cứu thực nghiệm 4 Level xem tại [`tracking/TECHNICAL_REPORT.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/TECHNICAL_REPORT.md).
+| Level | Tên Module | Script Chính | Mô tả |
+|---|---|---|---|
+| **Level 1** | Detection & Tracking | `tracking/track.py` | YOLOv8 + ByteTrack tracking baseline |
+| **Level 2** | Attribute Aggregation | `tracking/extract_crops.py`<br>`tracking/track_attributes.py` | Trích xuất crops & gom nhóm 40 thuộc tính UPAR |
+| **Level 3** | Re-ID Feature Embedding | `tracking/reid_embedding.py`<br>`tracking/reid_validate_reentry_combined.py` | OSNet 512-dim feature extraction & Re-entry benchmark |
+| **Level 4** | Hybrid Matching & Audit | `tracking/hybrid_matching.py` | Combined score (Re-ID + Attribute + Time) & LOOCV |
 
-### 8.0. Chạy Pipeline Tự Động 1 Lệnh (`run_pipeline.py`)
-Tự động hóa toàn bộ từ Video gốc đến Video Demo V2 (Level 1 -> 5):
+### ⚡ Script Điều Phối Tự Động 1 Lệnh (`run_pipeline.py`)
+
+Thực hiện **4 bước tự động: Tracking -> Crop -> Attribute -> Embedding, cộng bước tạo Video Demo V2** chỉ bằng 1 câu lệnh duy nhất:
+
 ```powershell
+# Chạy video chính thức (có ground-truth):
 python tracking/run_pipeline.py --video-name store-aisle-detection
-python tracking/run_pipeline.py --video-name face-demographics-walking-and-pause
+
+# Chạy video thử nghiệm (không có ground-truth, chế độ graceful):
+python tracking/run_pipeline.py --video-name real_pedestrians
 ```
 
-### 8.1. Chạy Tracking Baseline (Level 1)
-```powershell
-# Chạy tracking từ file video:
-python tracking/track.py --source tracking/test_videos/real_pedestrians.mp4 --save-video
-
-# Chạy tracking từ webcam:
-python tracking/track.py --source 0 --show
-```
-* **Kết quả CSV**: Lưu tại `reports/tracking/<ten_video>/tracks.csv` (`frame_id,track_id,x1,y1,x2,y2,confidence,timestamp`).
-
-### 8.2. Trích xuất Crop theo Track ID (Level 2)
-```powershell
-python tracking/extract_crops.py --video tracking/test_videos/real_pedestrians.mp4 --csv reports/tracking/real_pedestrians/tracks.csv --output-dir reports/tracking/crops/real_pedestrians --every-n-frames 5 --clean
-```
-
-### 8.3. Gán & Tổng hợp Thuộc tính UPAR (Level 2)
-```powershell
-python tracking/track_attributes.py `
-  --crops-dir reports/tracking/crops/real_pedestrians `
-  --tracks-csv reports/tracking/real_pedestrians/tracks.csv `
-  --checkpoint checkpoints/hydraplus_upar_best.pth `
-  --output-dir reports/tracking/real_pedestrians `
-  --min-frames 3
-```
-
-### 8.4. Re-ID Embedding & Combined Re-Entry Benchmark (Level 3)
-```powershell
-# Trích xuất 512-dim embedding & validate Market1501:
-python tracking/reid_embedding.py
-
-# Benchmark bài toán Re-entry trên 4 video domain (Micro EER 9.67%, Macro EER 13.70%):
-python tracking/reid_validate_reentry_combined.py
-```
-
-### 8.5. Hybrid Matching & LOOCV Evaluation (Level 4)
-```powershell
-python tracking/hybrid_matching.py
-```
+> 📖 **Hướng dẫn Chi tiết**: Xem lệnh thực thi chi tiết cho từng bước từ Level 1 đến Level 4 và các tham số nâng cao tại [`tracking/README.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/README.md). Báo cáo phương pháp luận và kết quả nghiên cứu thực nghiệm xem tại [`tracking/TECHNICAL_REPORT.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/TECHNICAL_REPORT.md).
 
 ---
 
