@@ -30,7 +30,7 @@ from tracking.reid_embedding import ReIDExtractor, DEFAULT_CHECKPOINT_PATH
 def parse_args():
     parser = argparse.ArgumentParser(description="Validate Re-ID on Re-Entry Video Case with Anti-Pseudo-Replication")
     parser.add_argument("--crops-dir", type=str, default="reports/tracking/crops/store_aisle", help="Path to crops directory")
-    parser.add_argument("--gt-csv", type=str, default="reports/tracking/reentry_ground_truth.csv", help="Path to reentry ground truth CSV")
+    parser.add_argument("--gt-csv", type=str, default="reports/tracking/store-aisle-detection/reentry_ground_truth.csv", help="Path to reentry ground truth CSV")
     parser.add_argument("--checkpoint", type=str, default=DEFAULT_CHECKPOINT_PATH, help="Path to OSNet checkpoint")
     parser.add_argument("--bootstrap-runs", type=int, default=1000, help="Number of bootstrap iterations")
     return parser.parse_args()

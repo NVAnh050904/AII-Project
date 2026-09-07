@@ -32,25 +32,25 @@ VIDEO_CONFIGS = [
     {
         "name": "store-aisle-detection",
         "crops_dir": "reports/tracking/crops/store_aisle",
-        "gt_csv": "reports/tracking/reentry_ground_truth.csv",
+        "gt_csv": "reports/tracking/store-aisle-detection/reentry_ground_truth.csv",
         "desc": "Indoor retail CCTV, high occlusion from aisles, low light"
     },
     {
         "name": "people-detection",
         "crops_dir": "reports/tracking/crops/people_detection",
-        "gt_csv": "reports/tracking/reentry_ground_truth_people-detection.csv",
+        "gt_csv": "reports/tracking/people-detection/reentry_ground_truth.csv",
         "desc": "Indoor office corridor, controlled lighting, short walk"
     },
     {
         "name": "person-bicycle-car-detection",
         "crops_dir": "reports/tracking/crops/person_bicycle_car",
-        "gt_csv": "reports/tracking/reentry_ground_truth_person-bicycle-car-detection.csv",
+        "gt_csv": "reports/tracking/person-bicycle-car-detection/reentry_ground_truth.csv",
         "desc": "Outdoor street crossing, top-down angle, cyclist/pedestrians"
     },
     {
         "name": "vtest",
         "crops_dir": "reports/tracking/crops/vtest",
-        "gt_csv": "reports/tracking/reentry_ground_truth_vtest.csv",
+        "gt_csv": "reports/tracking/vtest/reentry_ground_truth.csv",
         "desc": "Outdoor courtyard surveillance, wide-angle, high contrast clothing"
     }
 ]

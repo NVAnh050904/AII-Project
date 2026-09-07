@@ -49,14 +49,14 @@ flowchart LR
 
     subgraph Tracking ["5. Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)"]
         Video["Video / Webcam\n(tracking/test_videos/*)"] --> Tracker["YOLOv8 + ByteTrack\n(tracking/track.py - L1)"]
-        Tracker --> CSVTracks["Structured Tracks CSV\n(reports/tracking/*_tracks.csv)"]
+        Tracker --> CSVTracks["Structured Tracks CSV\n(reports/tracking/<ten_video>/tracks.csv)"]
         CSVTracks --> CropExt["Extract Person Crops\n(tracking/extract_crops.py - L2)"]
         CropExt --> TrackAttr["Track Attribute Aggregation\n(tracking/track_attributes.py - L2)"]
         Checkpoint --> TrackAttr
         CropExt --> ReID["OSNet MSMT17 Extractor\n(tracking/reid_embedding.py - L3)"]
         ReID --> Emb["512-dim Re-ID Vector"]
         TrackAttr & Emb --> Hybrid["Hybrid Matcher & LOOCV\n(tracking/hybrid_matching.py - L4)"]
-        Hybrid --> Summary["Tracked Persons Summary & JSON\n(reports/tracking/track_attributes.json)"]
+        Hybrid --> Summary["Tracked Persons Summary & JSON\n(reports/tracking/<ten_video>/attributes.json)"]
     end
 ```
 
@@ -155,6 +155,7 @@ flowchart TD
 │   ├── reid_validate_reentry.py    # Level 3: Validate Re-entry & Chống Pseudo-replication
 │   ├── reid_validate_reentry_combined.py # Level 3: Benchmark Re-ID trên 4 video domain
 │   ├── hybrid_matching.py          # Level 4: Hybrid Re-ID + Attribute + Time Penalty (LOOCV)
+│   ├── demo_combined.py            # Video Demo Hợp nhất Level 1 + Level 2 + Level 3
 │   ├── TECHNICAL_REPORT.md         # Báo cáo kỹ thuật & thực nghiệm chuyên sâu 4 Level
 │   ├── README.md                   # Hướng dẫn chi tiết sử dụng module tracking
 │   └── test_videos/                # Thư mục chứa các video test mẫu (.mp4, .avi)
@@ -171,12 +172,12 @@ flowchart TD
 │   ├── osnet_x1_0_msmt17.pth       # Checkpoint OSNet Re-ID Model (512-dim)
 │   └── yolov8n.pt                  # Checkpoint YOLOv8 Detector
 ├── reports/
-│   ├── tracking/                   # Kết quả CSV, JSON, Videos & Crops
-│   │   ├── _debug_images/          # Ảnh kiểm tra & debug trực quan
+│   ├── tracking/                   # Kết quả Tracking theo cấu trúc thư mục con
+│   │   ├── demo/                   # Video demo duy nhất & 5 ảnh screenshot Re-ID
 │   │   ├── crops/                  # Crop ảnh người theo track_id (crops/<ten_video>/track_<id>/)
-│   │   ├── track_attributes.csv    # Bảng thuộc tính Top-1 từng track_id
-│   │   ├── track_attributes.json   # Chi tiết multi-label & 40 xác suất raw & 512-dim Re-ID
-│   │   ├── reentry_ground_truth*.csv # Nhãn Ground-Truth Re-entry đánh giá
+│   │   ├── <ten_video>/            # 5 Thư mục video chính thức (tracks.csv, tracked.mp4, attributes.json, reentry_ground_truth.csv)
+│   │   ├── _exploration_archive/   # Thư mục lưu trữ 7 video thử nghiệm audit trail
+│   │   ├── _debug_images/          # Ảnh kiểm tra & debug trực quan
 │   │   └── tracked_persons_summary.csv # Bảng tổng hợp đối tượng
 │   ├── training_report.txt         # Báo cáo huấn luyện chi tiết
 │   ├── metrics.csv                 # Tóm tắt chỉ số Test/Val
@@ -311,20 +312,20 @@ python tracking/track.py --source tracking/test_videos/real_pedestrians.mp4 --sa
 # Chạy tracking từ webcam:
 python tracking/track.py --source 0 --show
 ```
-* **Kết quả CSV**: Lưu tại `reports/tracking/<ten_video>_tracks.csv` (`frame_id,track_id,x1,y1,x2,y2,confidence,timestamp`).
+* **Kết quả CSV**: Lưu tại `reports/tracking/<ten_video>/tracks.csv` (`frame_id,track_id,x1,y1,x2,y2,confidence,timestamp`).
 
 ### 8.2. Trích xuất Crop theo Track ID (Level 2)
 ```powershell
-python tracking/extract_crops.py --video tracking/test_videos/real_pedestrians.mp4 --csv reports/tracking/real_pedestrians_tracks.csv --output-dir reports/tracking/crops/real_pedestrians --every-n-frames 5 --clean
+python tracking/extract_crops.py --video tracking/test_videos/real_pedestrians.mp4 --csv reports/tracking/real_pedestrians/tracks.csv --output-dir reports/tracking/crops/real_pedestrians --every-n-frames 5 --clean
 ```
 
 ### 8.3. Gán & Tổng hợp Thuộc tính UPAR (Level 2)
 ```powershell
 python tracking/track_attributes.py `
   --crops-dir reports/tracking/crops/real_pedestrians `
-  --tracks-csv reports/tracking/real_pedestrians_tracks.csv `
+  --tracks-csv reports/tracking/real_pedestrians/tracks.csv `
   --checkpoint checkpoints/hydraplus_upar_best.pth `
-  --output-dir reports/tracking `
+  --output-dir reports/tracking/real_pedestrians `
   --min-frames 3
 ```
 

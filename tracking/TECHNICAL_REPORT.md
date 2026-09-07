@@ -31,7 +31,7 @@ flowchart TD
         Ext --> Crops["Person Crops per Track"]
         Crops --> PAR["UPAR Multi-Head Model\n(checkpoints/hydraplus_upar_best.pth)"]
         PAR --> Pool["Temporal Soft-Probability Mean Pooling"]
-        Pool --> TAttr["Track Attributes JSON & CSV\n(reports/tracking/track_attributes.json)"]
+        Pool --> TAttr["Track Attributes JSON & CSV\n(reports/tracking/<ten_video>/attributes.json)"]
     end
 
     subgraph L3 ["Level 3: Re-ID Feature Extraction & Evaluation"]
@@ -65,7 +65,7 @@ Khi chạy validate trên video chuẩn `real_pedestrians.mp4` (độ dài 10 gi
 
 ### 2.3. Hướng dẫn Vận hành
 ```powershell
-python tracking/track.py --source real_pedestrians.mp4 --save-video --output-dir reports/tracking
+python tracking/track.py --source real_pedestrians.mp4 --save-video --output-dir reports/tracking/real_pedestrians
 ```
 
 ---
@@ -82,8 +82,8 @@ Trong đó $N_i$ là số lượng crop của `track_id` $i$, và $P(a \mid x_{i
 * **Ưu điểm**: Loại bỏ nhiễu do nhòe chuyển động (motion blur) hoặc góc khuất tạm thời ở một vài frame đơn lẻ.
 
 ### 3.2. Cấu trúc Xuất Dữ liệu & Xử lý Chuẩn nhãn Multi-Label
-* **File JSON (`reports/tracking/track_attributes.json`)**: Lưu trữ đầy đủ vector 40 xác suất raw (`raw_probabilities_40`), danh sách nhãn active đầy đủ cho multi-label heads (ví dụ: `hair`: `["Short", "Bald"]`, `bag`: `["Backpack", "Bag"]`), và vector embedding Re-ID 512 chiều.
-* **File CSV (`reports/tracking/track_attributes.csv`)**: Lấy nhãn Top-1 có confidence cao nhất cho mỗi head để tiện truy vấn nhanh.
+* **File JSON (`reports/tracking/<ten_video>/attributes.json`)**: Lưu trữ đầy đủ vector 40 xác suất raw (`raw_probabilities_40`), danh sách nhãn active đầy đủ cho multi-label heads (ví dụ: `hair`: `["Short", "Bald"]`, `bag`: `["Backpack", "Bag"]`), và vector embedding Re-ID 512 chiều.
+* **File CSV (`reports/tracking/<ten_video>/attributes.csv`)**: Lấy nhãn Top-1 có confidence cao nhất cho mỗi head để tiện truy vấn nhanh.
 * **Xử lý Phụ kiện Tùy chọn (Optional Accessories - Glasses, Bag)**: Khi tất cả các nhãn con của head `glasses` (`Normal`, `Sun`) hoặc `bag` (`Backpack`, `Bag`) đều rơi xuống dưới ngưỡng threshold 0.50, hệ thống tự động gán nhãn đại diện là `"None"` thay vì ép chọn sai.
 
 ---

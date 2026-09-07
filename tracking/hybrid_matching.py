@@ -30,10 +30,10 @@ from tracking.reid_validate_reentry_combined import VIDEO_CONFIGS, load_ground_t
 
 
 JSON_PATHS = {
-    "store-aisle-detection": "reports/tracking/track_attributes_store_aisle.json",
-    "people-detection": "reports/tracking/track_attributes_people_detection.json",
-    "person-bicycle-car-detection": "reports/tracking/track_attributes_person_bicycle_car.json",
-    "vtest": "reports/tracking/track_attributes_vtest.json"
+    "store-aisle-detection": "reports/tracking/store-aisle-detection/attributes.json",
+    "people-detection": "reports/tracking/people-detection/attributes.json",
+    "person-bicycle-car-detection": "reports/tracking/person-bicycle-car-detection/attributes.json",
+    "vtest": "reports/tracking/vtest/attributes.json"
 }
 
 

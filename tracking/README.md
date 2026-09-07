@@ -30,7 +30,7 @@ python tracking/track.py --source tracking/test_videos/real_pedestrians.mp4 --sa
 # Tracking từ webcam:
 python tracking/track.py --source 0 --show
 ```
-* **Output**: `reports/tracking/<ten_video>_tracks.csv` và `reports/tracking/<ten_video>_tracked.mp4`.
+* **Output**: `reports/tracking/<ten_video>/tracks.csv` và `reports/tracking/<ten_video>/tracked.mp4`.
 * **Model weights**: Tự động lưu/tải tại `checkpoints/yolov8n.pt`.
 
 ---
@@ -41,7 +41,7 @@ python tracking/track.py --source 0 --show
 ```powershell
 python tracking/extract_crops.py \
   --video tracking/test_videos/real_pedestrians.mp4 \
-  --csv reports/tracking/real_pedestrians_tracks.csv \
+  --csv reports/tracking/real_pedestrians/tracks.csv \
   --output-dir reports/tracking/crops/real_pedestrians \
   --every-n-frames 5 \
   --clean
@@ -52,14 +52,14 @@ python tracking/extract_crops.py \
 ```powershell
 python tracking/track_attributes.py \
   --crops-dir reports/tracking/crops/real_pedestrians \
-  --tracks-csv reports/tracking/real_pedestrians_tracks.csv \
+  --tracks-csv reports/tracking/real_pedestrians/tracks.csv \
   --checkpoint checkpoints/hydraplus_upar_best.pth \
-  --output-dir reports/tracking \
+  --output-dir reports/tracking/real_pedestrians \
   --min-frames 3
 ```
 * **Output**: 
-  - `reports/tracking/track_attributes.csv`: Bảng thuộc tính Top-1 cho mỗi `track_id`.
-  - `reports/tracking/track_attributes.json`: Chi tiết multi-label active và 40 xác suất raw.
+  - `reports/tracking/<ten_video>/attributes.csv`: Bảng thuộc tính Top-1 cho mỗi `track_id`.
+  - `reports/tracking/<ten_video>/attributes.json`: Chi tiết multi-label active và 40 xác suất raw.
   - `reports/tracking/tracked_persons_summary.csv`: Bảng tổng hợp đối tượng (Track metadata + Attributes).
 
 ---
@@ -71,7 +71,7 @@ python tracking/track_attributes.py \
 python tracking/reid_embedding.py
 ```
 * Đánh giá phân phối Cosine Similarity Intra-ID vs Inter-ID trên dataset Market1501 (Separation Margin: **+34.72%**).
-* Tự động tính mean-pooled embedding 512 chiều cho từng `track_id` và cập nhật vào `reports/tracking/track_attributes.json`.
+* Tự động tính mean-pooled embedding 512 chiều cho từng `track_id` và cập nhật vào `reports/tracking/<ten_video>/attributes.json`.
 
 #### Bước 3.2 — Đánh giá Domain Gap trên Video Thực (`reid_validate_domain.py`):
 ```powershell
@@ -83,7 +83,7 @@ python tracking/reid_validate_domain.py
 ```powershell
 python tracking/reid_validate_reentry.py \
   --crops-dir reports/tracking/crops/store_aisle \
-  --gt-csv reports/tracking/reentry_ground_truth.csv
+  --gt-csv reports/tracking/store-aisle-detection/reentry_ground_truth.csv
 ```
 * Đánh giá EER bài toán Re-entry (người bị occlusion/rời khung hình) kết hợp gom nhóm Identity Độc lập & Bootstrap 1,000 lần.
 
@@ -108,6 +108,18 @@ python tracking/hybrid_matching.py
 
 ---
 
+### Demo Combined Video Generation (`demo_combined.py`)
+Tạo video demo duy nhất kết hợp trực quan Level 1 (Tracking) + Level 2 (Attribute) + Level 3 (Re-ID):
+
+```powershell
+python tracking/demo_combined.py
+```
+* **Output**:
+  - `reports/tracking/demo/demo_combined_tracking_attribute_reid.mp4` (Video demo hợp nhất 62s, 30 FPS, < 30 MB)
+  - `reports/tracking/demo/screenshot_*.jpg` (5 ảnh chụp màn hình minh chứng các khoảnh khắc Re-ID)
+
+---
+
 ## 3. Cấu trúc File Module `tracking/`
 
 ```text
@@ -123,5 +135,6 @@ tracking/
 ├── reid_validate_reentry.py                # Level 3: Validate Re-entry & Chống Pseudo-replication
 ├── reid_validate_reentry_combined.py       # Level 3: Benchmark Re-ID trên 4 video
 ├── hybrid_matching.py                      # Level 4: Hybrid Score & LOOCV Grid Search
+├── demo_combined.py                        # Video Demo Hợp nhất Level 1 + Level 2 + Level 3
 └── test_videos/                            # Thư mục lưu trữ video thử nghiệm mẫu (.mp4, .avi)
 ```
