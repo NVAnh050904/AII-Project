@@ -147,6 +147,7 @@ flowchart TD
 │       ├── backbone.py             # Feature Extractor (ResNet50)
 │       └── par_model.py            # UnifiedPARModel (SpatialAttention + 11 Heads)
 ├── tracking/                       # Module Video Tracking, Re-ID & Hybrid Matching (Level 1 - 4)
+│   ├── run_pipeline.py             # Orchestrator tự động hóa 1 lệnh (Level 1 -> 5)
 │   ├── track.py                    # Level 1: YOLOv8 + ByteTrack tracking pipeline
 │   ├── extract_crops.py            # Level 2: Trích xuất crop người theo track_id
 │   ├── track_attributes.py         # Level 2: Gom nhóm xác suất 40 thuộc tính UPAR
@@ -303,6 +304,13 @@ Hệ thống theo dõi người đi bộ toàn diện trong video gồm **4 Leve
 4. **Level 4 (Hybrid Matching & Audit)**: Kết hợp Re-ID + Attribute + Time Penalty qua LOOCV Grid Search (`tracking/hybrid_matching.py`).
 
 > Chi tiết hướng dẫn vận hành xem tại [`tracking/README.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/README.md). Báo cáo phương pháp luận và kết quả nghiên cứu thực nghiệm 4 Level xem tại [`tracking/TECHNICAL_REPORT.md`](file:///c:/Users/ADMIN/OneDrive/Documents/GitHub/AI-Project/tracking/TECHNICAL_REPORT.md).
+
+### 8.0. Chạy Pipeline Tự Động 1 Lệnh (`run_pipeline.py`)
+Tự động hóa toàn bộ từ Video gốc đến Video Demo V2 (Level 1 -> 5):
+```powershell
+python tracking/run_pipeline.py --video-name store-aisle-detection
+python tracking/run_pipeline.py --video-name face-demographics-walking-and-pause
+```
 
 ### 8.1. Chạy Tracking Baseline (Level 1)
 ```powershell
