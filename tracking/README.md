@@ -22,7 +22,7 @@ pip install ultralytics opencv-python torchreid networkx pandas
 
 ### ⚡ Script Điều Phối Tự Động 1 Lệnh (`run_pipeline.py`)
 
-Để chạy toàn bộ Pipeline từ Video gốc đến Video Demo V2 hoàn chỉnh (bao gồm Level 1 Tracking, Level 2 Attribute Aggregation, Level 3 Re-ID Embedding và Level 5 Combined Demo) chỉ với **1 câu lệnh duy nhất**:
+Để chạy toàn bộ Pipeline từ Video gốc đến Video Demo V2 hoàn chỉnh (bao gồm 4 bước tự động: Tracking, Crop Extraction, Attribute Aggregation, Re-ID Embedding và bước tạo Combined Demo Video) chỉ với **1 câu lệnh duy nhất**:
 
 ```powershell
 python tracking/run_pipeline.py --video-name store-aisle-detection
@@ -100,7 +100,7 @@ python tracking/reid_validate_domain.py
 #### Bước 3.3 — Đánh giá Re-entry & Chống Pseudo-Replication (`reid_validate_reentry.py`):
 ```powershell
 python tracking/reid_validate_reentry.py \
-  --crops-dir reports/tracking/crops/store_aisle \
+  --crops-dir reports/tracking/crops/store-aisle-detection \
   --gt-csv reports/tracking/store-aisle-detection/reentry_ground_truth.csv
 ```
 * Đánh giá EER bài toán Re-entry (người bị occlusion/rời khung hình) kết hợp gom nhóm Identity Độc lập & Bootstrap 1,000 lần.
@@ -138,7 +138,6 @@ python tracking/demo_combined.py --video-name real_pedestrians
 python tracking/demo_combined.py --video-name classroom
 python tracking/demo_combined.py --video-name worker-zone-detection
 python tracking/demo_combined.py --video-name people-detection
-python tracking/demo_combined.py --video-name face-demographics-walking-and-pause
 ```
 
 * **Điểm nổi bật V2**:
@@ -158,7 +157,7 @@ tracking/
 ├── __init__.py
 ├── README.md                               # Hướng dẫn sử dụng module tracking
 ├── TECHNICAL_REPORT.md                     # Báo cáo kỹ thuật & kết quả nghiên cứu 4 Level
-├── run_pipeline.py                         # Orchestrator tự động hóa 1 lệnh (Level 1 -> 5)
+├── run_pipeline.py                         # Orchestrator tự động hóa 4 bước (Tracking, Crop, Attribute, Embedding) + Video Demo V2
 ├── track.py                                # Level 1: YOLOv8 + ByteTrack tracking pipeline
 ├── extract_crops.py                        # Level 2: Trích crop ảnh người theo track_id
 ├── track_attributes.py                     # Level 2: Gom nhóm xác suất 40 thuộc tính UPAR
