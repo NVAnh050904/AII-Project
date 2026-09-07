@@ -432,6 +432,12 @@ def main():
         json.dump(json_output, f, indent=2)
     print(f"[OUTPUT] Saved track attributes JSON: {json_file.resolve()}")
 
+    # Also save as attributes.json for pipeline consistency
+    attr_json_file = output_dir / "attributes.json"
+    with open(attr_json_file, "w", encoding="utf-8") as f:
+        json.dump(json_output, f, indent=2)
+    print(f"[OUTPUT] Saved attributes JSON: {attr_json_file.resolve()}")
+
     summary_file = output_dir / "tracked_persons_summary.csv"
     summary_fieldnames = list(summary_rows[0].keys()) if summary_rows else []
     with open(summary_file, "w", newline="", encoding="utf-8") as f:
